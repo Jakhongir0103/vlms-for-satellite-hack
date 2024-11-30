@@ -27,3 +27,8 @@ class Location:
         for file in os.listdir(TILE_SAVE_DIR):
             key = tuple(map(int, file[:-4].split('_')))
             self.tiles[key] = Image.open(f"{TILE_SAVE_DIR}{file}")
+    def get_example_images(self):
+        return [self.tiles[example] for example in self.examples]
+    
+    def get_thumbnail(self):
+        return self.tiles[self.examples[0]]
