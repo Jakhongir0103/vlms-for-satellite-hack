@@ -27,3 +27,5 @@ class Location:
         for file in os.listdir(TILE_SAVE_DIR):
             key = tuple(map(int, file[:-4].split('_')))
             self.tiles[key] = Image.open(f"{TILE_SAVE_DIR}{file}")
+
+    def get_real_tile_size(self): (self.tiles[(0, 0)].width * self.meters_per_pixel, self.tiles[(0, 0)].height * self.meters_per_pixel)
