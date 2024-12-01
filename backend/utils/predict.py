@@ -1,3 +1,5 @@
+# Credits for most of this code goes to https://github.com/srimannarayanabaratam/land_cover_classification_unet/tree/main
+
 import argparse
 import logging
 import os
@@ -9,8 +11,7 @@ from PIL import Image
 from torchvision import transforms
 
 from unet import UNet
-from utils.data_vis import plot_img_and_mask
-from utils.dataset import BasicDataset
+from dataset import BasicDataset
 import matplotlib.pyplot as plt
 import glob
 from torch.utils.data import DataLoader
