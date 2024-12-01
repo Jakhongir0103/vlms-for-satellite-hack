@@ -15,7 +15,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.segmentation import process_image, post_process_image, preload_model
 from backend.predict_field_segmentation import segment_land, preload_model as preload_field_segmentation_model
 
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
+#os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
+os.environ["OPENAI_API_KEY"] = "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"
 os.makedirs('image_out', exist_ok=True)
 
 class UnifiedVisionModel:
@@ -72,7 +73,7 @@ class UnifiedVisionModel:
         return response.content
 
 class RSChatGPT:
-    def __init__(self, gpt_name, cv_model_type='x', field_segmentation_model_path='../backend/weights/CP_epoch30.pth'):
+    def __init__(self, gpt_name, cv_model_type='x', field_segmentation_model_path='backend/weights/CP_epoch30.pth'):
         self.llm = ChatOpenAI(
             model=gpt_name,
             max_tokens=1000,
