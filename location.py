@@ -122,6 +122,11 @@ class Location:
                 instance.tiles[key] = Image.open(os.path.join(tiles_dir, file))
         
         return instance
+def load_all_locations():
+    locations = []
+    for name in os.listdir(TILE_SAVE_DIR):
+        locations.append(Location.load_class(name))
+    return locations
 
 
 
