@@ -77,6 +77,8 @@ A list of object names:
         label_to_id = {label: id for id, label in id_to_label.items()}
         result_list, image_out = post_process_image(result, resolution=resolution, threshold=threshold, class_index=[label_to_id[name] for name in self.object_names])
 
+        image_out = Image.fromarray(image_out)
+
         return result_list, image_out
 
     def extract_output(self, text):
