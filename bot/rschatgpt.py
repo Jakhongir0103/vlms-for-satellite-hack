@@ -1,12 +1,14 @@
-import os
 import argparse
+import ast
+import os
 import re
+
 from langchain_openai import ChatOpenAI
 from PIL import Image
-import ast
+
 import dotenv
-from tqdm import tqdm
 dotenv.load_dotenv()
+
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,10 +21,12 @@ class UnifiedVisionModel:
     def __init__(self, llm):
         self.llm = llm
     
-    def image_to_base64(self, image_path):
+    def image_to_base64(self, image):
         import base64
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+        from io import BytesIO
+        buffered = BytesIO()
+        image.save(buffered, format="JPEG")
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     def analyze_text(self, text_prompt, system_message=None):
         messages = [
@@ -34,6 +38,31 @@ class UnifiedVisionModel:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": text_prompt},
+                ]
+            }
+        ]
+        
+        response = self.llm.invoke(messages)
+        return response.content
+
+    def analyze_image(self, image, prompt=None, system_message=None):
+        base64_image = self.image_to_base64(image)
+        
+        messages = [
+            {
+                "role": "system",
+                "content": system_message if system_message else "You are a helpful visual assistant. If the provided context does not contain all the necessary information, analyze the image and answer the question yourself."
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"This is a satellite image. {prompt if prompt else ''}"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
                 ]
             }
         ]
@@ -59,7 +88,7 @@ class RSChatGPT:
         """
         prompt = f"""Among these following objects ['plane', 'ship', 'storage tank', 'ground track field', 'large vehicle', 'small vehicle', 'helicopter'], which ones is the question about?
 Note that 'large vehicle' and 'small vehicle' are cars.
-Return only a python list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the objects, return an empty list.
+Return only a list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the objects, return an empty list.
 
 Question:
 {question}
@@ -68,6 +97,8 @@ A list of object names:
 """
         object_names = self.vision_model.analyze_text(prompt)
         object_names = ast.literal_eval(object_names)
+
+        print("Object names:\n", object_names)
 
         self.object_names = object_names
 
@@ -92,11 +123,12 @@ A list of object names:
         """
         Run the image and the result list through the model.
         """
+        obj_count = {class_name: sum(1 for obj in result_list if obj['class'] == class_name) for class_name in self.object_names}
         prompt = f"""Answer the question about an image based on the given objects' properties.
 Note that 'large vehicle' and 'small vehicle' are cars. Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Number of objects:
-{len(result_list)}
+{chr(10).join([f"{class_name}: {count}" for class_name, count in obj_count.items()])}
 
 Objects properties:
 {chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in result_list])}
@@ -105,7 +137,32 @@ Question:
 {question}
 """
 
+        print("Prompt:\n", prompt)
+
         response = self.vision_model.analyze_text(prompt)
+        return self.extract_output(response)
+
+    def run_image(self, image, question, result_list):
+        """
+        Run the image and the result list through the model.
+        """
+        obj_count = {class_name: sum(1 for obj in result_list if obj['class'] == class_name) for class_name in self.object_names}
+        prompt = f"""Answer the question about the image based on the given objects' properties.
+Note that 'large vehicle' and 'small vehicle' are cars. Output only a single number as your output between double square brackets as, e.g [[6]].
+
+Number of objects:
+{chr(10).join([f"{class_name}: {count}" for class_name, count in obj_count.items()])}
+
+Objects properties:
+{chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in result_list])}
+
+Question:
+{question}
+"""
+
+        print("Prompt:\n", prompt)
+
+        response = self.vision_model.analyze_image(image, prompt)
         return self.extract_output(response)
 
 if __name__ == '__main__':
@@ -121,6 +178,6 @@ if __name__ == '__main__':
     image = Image.open(args.image_path)
 
     result_list, image_out = bot.segment_image(image, args.threshold)
-    response = bot.run_text(args.question, result_list)
+    response = bot.run_image(image, args.question, result_list)
 
     print("Response:\n", response)
