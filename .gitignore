@@ -170,4 +170,3 @@ cython_debug/
 #.idea/
 
 yolo*.pt
-backend/weights/*
