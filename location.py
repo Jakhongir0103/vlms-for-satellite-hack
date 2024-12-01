@@ -1,4 +1,6 @@
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from PIL import Image
@@ -242,16 +244,36 @@ def calculate_new_coordinates(lat_lon, meters_south, meters_east):
 from math import radians, sin, cos, sqrt, atan2
 
 def calculate_distance_components(top_left, bottom_right):
-    R = 6378137
+    """
+    Calculate the area of a rectangle defined by two geographical points
+    (top_left and bottom_right) using Earth's radius.
+    
+    Parameters:
+    - top_left: tuple of (latitude, longitude) for the top-left corner.
+    - bottom_right: tuple of (latitude, longitude) for the bottom-right corner.
+    
+    Returns:
+    - area: Area in square meters.
+    """
+    R = 6378137  # Earth's radius in meters
+    
     lat1, lon1 = map(radians, top_left)
     lat2, lon2 = map(radians, bottom_right)
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
     
+    # Calculate distances
+    dlat = abs(lat2 - lat1)
+    dlon = abs(lon2 - lon1)
+    
+    # North-South distance
     north_south_distance = dlat * R
+    
+    # East-West distance
     east_west_distance = dlon * R * cos((lat1 + lat2) / 2)
     
-    return (north_south_distance, east_west_distance)
+    # Area of the rectangle
+    area = north_south_distance * east_west_distance
+    
+    return area
 
 # Example usage
 top_left_coords = (48.8566, 2.3522)
