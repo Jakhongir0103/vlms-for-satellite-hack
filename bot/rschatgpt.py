@@ -165,13 +165,22 @@ Question:
         response = self.vision_model.analyze_image(image, prompt)
         return self.extract_output(response)
 
+def main(image: Image.Image, question: str, threshold: float, resolution: float ):
+    bot = RSChatGPT(gpt_name="gpt-4o-mini")
+    bot.initialize(question)
+
+    result_list, image_out = bot.segment_image(image, threshold, resolution)
+    response = bot.run_image(image, question, result_list)
+
+    return response, image_out
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_path', type=str, required=True)
     parser.add_argument('--question', type=str, required=True)
     parser.add_argument('--threshold', type=float, required=True)
     args = parser.parse_args()
-    
+
     bot = RSChatGPT(gpt_name="gpt-4o-mini")
     bot.initialize(args.question)
 
