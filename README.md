@@ -12,8 +12,8 @@
 2. **Processing**:
    - The LLM acts as an expert interpreter
    - It analyzes the user's question
-   - It selects and calls appropriate computer vision tools
-   - It generates human-friendly responses
+   - It selects and calls appropriate computer vision tools 
+   - It post-processes the output before generating a human-friendly responses
 
 3. **Features**:
    - Supports various interpretation tasks using specialized remote sensing datasets
