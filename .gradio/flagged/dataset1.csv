@@ -1,0 +1,66 @@
+output,timestamp
+"'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Satellite Map Selector</title>
+    <link rel=""stylesheet"" href=""https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"" />
+    <style>
+        #map {
+            height: 400px;
+            width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div id=""map""></div>
+    <button onclick=""captureMapArea()"">Capture Area</button>
+    <script src=""https://unpkg.com/leaflet@1.7.1/dist/leaflet.js""></script>
+    <script>
+        var map = L.map('map').setView([51.505, -0.09], 13); // Initial location and zoom level
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href=""https://www.openstreetmap.org/copyright"">OpenStreetMap</a> contributors',
+            maxZoom: 18,
+        }).addTo(map);
+
+        function captureMapArea() {
+            map.once('zoomend', function() {
+                var mapBounds = map.getBounds();
+                var nw = map.latLngToContainerPoint(mapBounds.getNorthWest());
+                var se = map.latLngToContainerPoint(mapBounds.getSouthEast());
+                var width = se.x - nw.x;
+                var height = se.y - nw.y;
+
+                var canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                var context = canvas.getContext('2d');
+
+                // Draw the visible map area into the canvas
+                context.drawImage(
+                    document.querySelector('.leaflet-tile-container img'),
+                    nw.x, nw.y, width, height,
+                    0, 0, width, height
+                );
+
+                // Save the canvas content as an image
+                canvas.toBlob(function(blob) {
+                    var url = URL.createObjectURL(blob);
+                    var link = document.createElement('a');
+                    link.download = 'map-capture.png';
+                    link.href = url;
+                    link.click();
+                });
+            });
+
+            map.zoomIn(); // Trigger zoom to capture after zooming
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            L.control.scale().addTo(map);
+        });
+    </script>
+</body>
+</html>
+",2024-12-01 04:40:49.489094

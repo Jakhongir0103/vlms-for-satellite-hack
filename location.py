@@ -2,6 +2,7 @@
 import os
 from dataclasses import dataclass
 from PIL import Image
+import random
 TILE_SAVE_DIR = 'tiles/'
 import pickle
 
