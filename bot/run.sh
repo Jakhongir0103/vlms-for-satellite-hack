@@ -1,4 +1,5 @@
 python rschatgpt.py \
---image_path ../tiles/0_0.png \
---question "How many storage tanks with diameter above 2 meters?" \
---threshold 0.1
+--image_path image_3.png \
+--question "Please look at this satelite image and tell me the area of the forest." \
+--threshold 0.5 \
+--resolution 0.1
