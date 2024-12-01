@@ -217,6 +217,8 @@ def detect_solar_panels(model, selected_img, resolution):
         area = (max_row - min_row) * (max_col - min_col)
         total_area_selected += area
 
+    # Careful ! The area calculation is probably not accurate if the image is not squared (there is resizing happening at some point... so, don't use with non-square images)
+
     total_image_area = height * width
     percentage_selected = (total_area_selected / total_image_area)
 
