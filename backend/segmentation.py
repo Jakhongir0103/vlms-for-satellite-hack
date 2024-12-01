@@ -7,9 +7,6 @@ ultralytics.checks()
 
 from ultralytics import YOLO
 
-<<<<<<< HEAD
-=======
-# Define a custom color mapping
 color_mapping = {
     0: (178, 196, 7),  # Rich Blue
     1: (62,62, 219),  # Vivid Red
@@ -28,7 +25,6 @@ color_mapping = {
     14: (110, 175, 176),  # Magenta
 }
 
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
 def select_model(model: str):
     """
     Select a model for object detection.
@@ -59,37 +55,23 @@ def preload_model(model: str):
     """
     return select_model(model)
 
-<<<<<<< HEAD
 def process_image(image: Image, model: str):
-=======
-def process_image(image: Image, model):
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
     """
     Process an image using a CV model.
 
     Args:
         image (Image from PIL): The image to process.
-<<<<<<< HEAD
         model (str): The model to use for processing (n, m, l, x) for different sizes.
-=======
-        model: Loaded model
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
 
     Returns:
         Direct output from the model.
     """
     assert isinstance(image, Image.Image), "Image must be a PIL image."
 
-<<<<<<< HEAD
-    # Load a pretrained model
-    model = select_model(model)
-
-=======
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
     # Run inference on the image
     results = model(image)
 
-    return results, results[0].names
+    return results[0]
 
 def filter_predictions(predictions, probs_preds, xywhrs, threshold=None, class_index=None):
     """
@@ -121,7 +103,6 @@ def filter_predictions(predictions, probs_preds, xywhrs, threshold=None, class_i
 
     return filtered_predictions, filtered_probs_preds, filtered_xywhrs
 
-
 def draw_bounding_boxes(image, predictions, probs_preds, xywhrs, labels):
     """
     Draws bounding boxes and labels on the image.
@@ -148,32 +129,17 @@ def draw_bounding_boxes(image, predictions, probs_preds, xywhrs, labels):
         # Define the rectangle box
         rect = ((x_center, y_center), (width, height), angle_degrees)
         box = cv2.boxPoints(rect)
-<<<<<<< HEAD
         
         # Convert box to int (numpy doesn't support int0)
         box = np.array(box, dtype=int)
 
         # Draw the bounding box
         cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
-=======
-        box = np.array(box, dtype=int)
-
-        # Get the color for the current class
-        color = color_mapping[int(cls)]
-
-        # Draw the bounding box
-        cv2.drawContours(image, [box], 0, color, 2)
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
 
         # Put the class label and confidence score
         label_text = f"{labels[int(cls)]}: {conf:.2f}"
         cv2.putText(image, label_text, (x_center_int, y_center_int - 10),
-<<<<<<< HEAD
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-=======
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 def calculate_diameters(xywhrs, resolution):
@@ -187,22 +153,12 @@ def calculate_diameters(xywhrs, resolution):
     Returns:
         np.ndarray: Array of diameters.
         float: Standard deviation of diameters (uncertainty).
-<<<<<<< HEAD
-=======
-        np.ndarray: Widths.
-        np.ndarray: Heights.
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
     """
     wh = xywhrs[:, 2:4]
     diameters = np.mean(wh, axis=1) * resolution
-    diameter_uncertainty = np.std(wh, axis=1) * resolution
-<<<<<<< HEAD
-    return diameters, diameter_uncertainty
-=======
-    return diameters, diameter_uncertainty, wh[:, 0], wh[:, 1]
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
+    return diameters, wh[:, 0] * resolution, wh[:, 1] * resolution
 
-def post_process_image(results, resolution: float, threshold: float = None, class_index: int = [0, 1, 2, 6, 7, 8, 9, 10, 11]):
+def post_process_image(result, resolution: float, threshold: float = None, class_index: int = [0, 1, 2, 6, 7, 8, 9, 10, 11]):
     """
     Post-processes the image to get object count and fuel tank diameters.
 
@@ -218,9 +174,6 @@ def post_process_image(results, resolution: float, threshold: float = None, clas
         float: Diameter uncertainty.
         np.ndarray: Image with drawn bounding boxes.
     """
-    # Get the first result (assuming you have one image)
-    result = results[0]
-
     # Get the original image
     image = result.orig_img.copy()
 
@@ -235,28 +188,11 @@ def post_process_image(results, resolution: float, threshold: float = None, clas
         predictions, probs_preds, xywhrs, threshold, class_index
     )
 
-    # Count per class
-    unique, counts = np.unique(predictions, return_counts=True)
-    total_count = len(predictions)
-    object_counts = dict(zip([labels[i] for i in unique], counts))
-
     # Draw bounding boxes on the image
     image = draw_bounding_boxes(image, predictions, probs_preds, xywhrs, labels)
 
     # Calculate diameters and uncertainty
-<<<<<<< HEAD
-    diameters, diameter_uncertainty = calculate_diameters(xywhrs, resolution) if resolution else (None, None)
-
-    # Prepare the result dictionary
-    result_dict = {
-        'total_count': total_count,
-        'object_counts': object_counts,
-        'diameters': diameters    
-    }
-
-    return result_dict, image
-=======
-    diameters, diameter_uncertainty, widths, heights = calculate_diameters(xywhrs, resolution) if resolution else (None, None, None, None)
+    diameters, widths, heights = calculate_diameters(xywhrs, resolution) if resolution else (None, None)
 
     # Prepare the result dictionary
     result_object = []
@@ -270,28 +206,22 @@ def post_process_image(results, resolution: float, threshold: float = None, clas
         })
 
     return result_object, image
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
 
 
-def main():
-    # Preload model (if needed)
-    model = preload_model("x")
+# def main():
+#     # Load an image
+#     img = Image.open("image_in/storage.png")
 
-    # Load an image
-    img = Image.open("backend/Test Images/boats.jpg")
+#     # Run the model
+#     result = process_image(img, "x")
+#     id_to_label = result.names
+#     result_dict, image = post_process_image(result, resolution=0.1, threshold=0.2)
+#     print(result_dict)
 
-    # Run the model
-<<<<<<< HEAD
-    results, labels = process_image(img, "x")
-=======
-    results, labels = process_image(img, model)
->>>>>>> b066d6d866c82004a36471cedb30d3a17303ba59
-    result_dict, image = post_process_image(results, resolution=0.1, threshold=0.2)
+#     # print(result_dict)
+#     # plt.imshow(image)
+#     # plt.axis('off')
+#     # plt.show()
 
-    print(result_dict)
-    plt.imshow(image)
-    plt.axis('off')
-    plt.show()
-
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
