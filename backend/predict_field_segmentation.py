@@ -2,12 +2,25 @@ import numpy as np
 import torch
 from PIL import Image
 
-from unet import UNet
 
-import backend.utils.predict as predict
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend'))
+
+from unet.unet_model import UNet
+
+from utils.predict import predict_img
 import gc
 
-def segment_land(image, scale, threshold, resolution, model_path):
+def preload_model(model_path):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    net = UNet(n_channels=3, n_classes=7)
+    net.to(device=device)
+    net.load_state_dict(torch.load(model_path, map_location=device))
+    return net
+
+def segment_land(image, scale, threshold, resolution, net):
     """
     Segments the land in the image using the UNet model.
 
@@ -23,17 +36,13 @@ def segment_land(image, scale, threshold, resolution, model_path):
         Image from PIL: The segmented image.
     """
 
-    gc.collect()
-    torch.cuda.empty_cache()
-
+    # Convert image to RGB if it has an alpha channel
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    net = UNet(n_channels=3, n_classes=7)
-
-    net.to(device=device)
-    net.load_state_dict(torch.load(model_path, map_location=device))
-
-    seg, mask_indices = predict.predict_img(net=net,
+    seg, mask_indices = predict_img(net=net,
                            full_img=image,
                            scale_factor=scale,
                            out_threshold=threshold,
@@ -51,21 +60,25 @@ def segment_land(image, scale, threshold, resolution, model_path):
 
     return_dict = {}
     for i in range(7):
-        area = np.sum(mask_indices == i) * resolution
-        ratio_area = area / (image.size[0] * image.size[1])
+        area = np.sum(mask_indices == i)
+        ratio_area = area / (mask_indices.shape[0] * mask_indices.shape[1])
+        area = area * resolution
         return_dict[labels_map[i]] = {'area': area, 'ratio_area': ratio_area}
+
+    segmented_image = segmented_image.convert('RGB')
 
     return return_dict, segmented_image
         
 def main():
     # Example usage
-    image_path = 'data/test_set_full_set/img_test/1.png'
+    image_path = 'image.png'
     image = Image.open(image_path)
     scale = 0.2
     threshold = 0.5
     resolution = 0.5
     model_path = 'weights/CP_epoch30.pth'
-    areas, segmented_image = segment_land(image, scale, threshold, resolution, model_path)
+    net = preload_model(model_path)
+    areas, segmented_image = segment_land(image, scale, threshold, resolution, net)
     print(areas)
     segmented_image.show()
 

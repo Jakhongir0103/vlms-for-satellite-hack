@@ -13,6 +13,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.segmentation import process_image, post_process_image, preload_model
+from backend.predict_field_segmentation import segment_land, preload_model as preload_field_segmentation_model
 
 os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
 os.makedirs('image_out', exist_ok=True)
@@ -71,7 +72,7 @@ class UnifiedVisionModel:
         return response.content
 
 class RSChatGPT:
-    def __init__(self, gpt_name, cv_model_type='x'):
+    def __init__(self, gpt_name, cv_model_type='x', field_segmentation_model_path='../backend/weights/CP_epoch30.pth'):
         self.llm = ChatOpenAI(
             model=gpt_name,
             max_tokens=1000,
@@ -79,38 +80,59 @@ class RSChatGPT:
         )
         self.vision_model = UnifiedVisionModel(self.llm)
         self.cv_model = preload_model(cv_model_type)
+        self.field_net = preload_field_segmentation_model(field_segmentation_model_path)
+        self.object_names = ['plane', 'ship', 'storage tank', 'ground track field', 'large vehicle', 'small vehicle', 'helicopter']
+        self.field_names = ['urban land', 'agriculture', 'rangeland', 'forest land', 'water', 'barren land']
         self.system_message = None
-        self.object_names = None
+        self.detected_entities = None
+        self.question_type = None
 
     def initialize(self, question):
         """
         Initialize the object names.
         """
-        prompt = f"""Among these following objects ['plane', 'ship', 'storage tank', 'ground track field', 'large vehicle', 'small vehicle', 'helicopter'], which ones is the question about?
+        prompt = f"""Given the question, which ones of the following entities is the question about?
 Note that 'large vehicle' and 'small vehicle' are cars.
-Return only a list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the objects, return an empty list.
+Return only a list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the entities, return an empty list.
+
+Entities: 
+{self.object_names + self.field_names}
 
 Question:
 {question}
 
-A list of object names:
+A list of entity names:
 """
-        object_names = self.vision_model.analyze_text(prompt)
-        object_names = ast.literal_eval(object_names)
+        detected_entities = self.vision_model.analyze_text(prompt)
+        detected_entities = ast.literal_eval(detected_entities)
 
-        print("Object names:\n", object_names)
+        if [entity for entity in detected_entities if entity in self.object_names]:
+            self.question_type = 'object'
+        elif [entity for entity in detected_entities if entity in self.field_names]:
+            self.question_type = 'field'
+        else:
+            self.question_type = None
 
-        self.object_names = object_names
+        print("Detected entities:\n", detected_entities)
 
-    def segment_image(self, image_in, threshold, resolution=0.1):
+        self.detected_entities = detected_entities
+
+    def segment_object(self, image_in, threshold=0.5, resolution=0.1):
         result = process_image(image=image_in, model=self.cv_model)
         id_to_label = result.names
         label_to_id = {label: id for id, label in id_to_label.items()}
+
         result_list, image_out = post_process_image(result, resolution=resolution, threshold=threshold, class_index=[label_to_id[name] for name in self.object_names])
 
         image_out = Image.fromarray(image_out)
 
         return result_list, image_out
+
+    def segment_field(self, image_in, threshold=0.5, resolution=0.1, scale=0.2):
+        areas, image_out = segment_land(image=image_in, threshold=threshold, resolution=resolution, scale=scale, net=self.field_net)
+        del areas['unknown']
+
+        return areas, image_out
 
     def extract_output(self, text):
         match = re.search(r'\[\[(.*?)\]\]', text)
@@ -119,19 +141,37 @@ A list of object names:
         else:
             return 0
 
-    def run_text(self, question, result_list):
+    def run_text(self, question, results):
         """
         Run the image and the result list through the model.
         """
-        obj_count = {class_name: sum(1 for obj in result_list if obj['class'] == class_name) for class_name in self.object_names}
-        prompt = f"""Answer the question about an image based on the given objects' properties.
+        if self.question_type == 'object':
+            obj_count = {class_name: sum(1 for obj in results if obj['class'] == class_name) for class_name in self.object_names}
+            prompt = f"""Answer the question about an image based on the given objects' properties.
 Note that 'large vehicle' and 'small vehicle' are cars. Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Number of objects:
 {chr(10).join([f"{class_name}: {count}" for class_name, count in obj_count.items()])}
 
 Objects properties:
-{chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in result_list])}
+{chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in results])}
+
+Question:
+{question}
+"""
+        elif self.question_type == 'field':
+            prompt = f"""Answer the question about an image based on the given fields' areas.
+Output only a single number as your output between double square brackets as, e.g [[6]].
+
+Area of each type of field:
+{chr(10).join([f"{field}: area = {areas['area']:.2f} square meters, area ratio = {areas['ratio_area']:.4f}" for field, areas in results.items()])}
+
+Question:
+{question}
+"""
+        else:
+            prompt = f"""Answer the question about an image.
+Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Question:
 {question}
@@ -142,19 +182,37 @@ Question:
         response = self.vision_model.analyze_text(prompt)
         return self.extract_output(response)
 
-    def run_image(self, image, question, result_list):
+    def run_image(self, image, question, results=None):
         """
         Run the image and the result list through the model.
         """
-        obj_count = {class_name: sum(1 for obj in result_list if obj['class'] == class_name) for class_name in self.object_names}
-        prompt = f"""Answer the question about the image based on the given objects' properties.
+        if self.question_type == 'object':
+            obj_count = {class_name: sum(1 for obj in results if obj['class'] == class_name) for class_name in self.object_names}
+            prompt = f"""Answer the question about the image based on the given objects' properties.
 Note that 'large vehicle' and 'small vehicle' are cars. Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Number of objects:
 {chr(10).join([f"{class_name}: {count}" for class_name, count in obj_count.items()])}
 
 Objects properties:
-{chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in result_list])}
+{chr(10).join([f"{obj['class']}: diameter = {obj['diameter']:.2f} meters, width = {obj['width']:.2f} meters, height = {obj['height']:.2f} meters" for obj in results])}
+
+Question:
+{question}
+"""
+        elif self.question_type == 'field':
+            prompt = f"""Answer the question about the image based on the given fields' areas.
+Output only a single number as your output between double square brackets as, e.g [[6]].
+
+Area of each type of field:
+{chr(10).join([f"{field}: area = {areas['area']:.2f} square meters, area ratio = {areas['ratio_area']:.4f}" for field, areas in results.items()])}
+
+Question:
+{question}
+"""
+        else:
+            prompt = f"""Answer the question about the image.
+Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Question:
 {question}
@@ -165,12 +223,22 @@ Question:
         response = self.vision_model.analyze_image(image, prompt)
         return self.extract_output(response)
 
-def main(image: Image.Image, question: str, threshold: float, resolution: float ):
+def initilize_bot(question: str):
     bot = RSChatGPT(gpt_name="gpt-4o-mini")
     bot.initialize(question)
 
-    result_list, image_out = bot.segment_image(image, threshold, resolution)
-    response = bot.run_image(image, question, result_list)
+    return bot
+
+def analyze_image(bot, image, question, threshold, resolution):
+    if bot.question_type == 'object':
+        results, image_out = bot.segment_object(image, threshold, resolution)
+    elif bot.question_type == 'field':
+        results, image_out = bot.segment_field(image, threshold, resolution)
+    else:
+        results = None
+        image_out = image
+
+    response = bot.run_image(image_out, question, results)
 
     return response, image_out
 
@@ -179,14 +247,13 @@ if __name__ == '__main__':
     parser.add_argument('--image_path', type=str, required=True)
     parser.add_argument('--question', type=str, required=True)
     parser.add_argument('--threshold', type=float, required=True)
+    parser.add_argument('--resolution', type=float, required=True)
     args = parser.parse_args()
 
-    bot = RSChatGPT(gpt_name="gpt-4o-mini")
-    bot.initialize(args.question)
+    bot = initilize_bot(args.question)
 
     image = Image.open(args.image_path)
+    response, image_out = analyze_image(bot, image, args.question, args.threshold, args.resolution)
 
-    result_list, image_out = bot.segment_image(image, args.threshold)
-    response = bot.run_image(image, args.question, result_list)
-
+    image_out.show()
     print("Response:\n", response)

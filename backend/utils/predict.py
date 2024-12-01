@@ -3,6 +3,8 @@
 import argparse
 import logging
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import torch
@@ -10,12 +12,7 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms
 
-from unet import UNet
-from dataset import BasicDataset
-import matplotlib.pyplot as plt
-import glob
-from torch.utils.data import DataLoader
-
+from utils.dataset import BasicDataset
 
 def predict_img(net,
                 full_img,
@@ -181,68 +178,68 @@ def compute_iou(predicted, actual,num_calsses):
         return mean_iou
 
 
-if __name__ == "__main__":
-    torch.cuda.empty_cache()
-    args = get_args()
-    in_files = args.input
+# if __name__ == "__main__":
+#     torch.cuda.empty_cache()
+#     args = get_args()
+#     in_files = args.input
     
-    img_scale=args.scale
-    dir_mask='data/test_set_full_set/masks_test/'
-    # dir_mask='data/masks_subset/'
-    # dir_img='data/test_set_full_set/img_test/'
-    gt_list=[]
-    mask_dirs=sorted( filter( os.path.isfile, glob.glob(dir_mask+'*') ) )
+#     img_scale=args.scale
+#     dir_mask='data/test_set_full_set/masks_test/'
+#     # dir_mask='data/masks_subset/'
+#     # dir_img='data/test_set_full_set/img_test/'
+#     gt_list=[]
+#     mask_dirs=sorted( filter( os.path.isfile, glob.glob(dir_mask+'*') ) )
 
-    for filename in mask_dirs:
-        mask = Image.open(filename)
-        resized_mask=preprocess_mask(mask, img_scale)      
-        mask=np.asarray(resized_mask)     
-        gt_list.append(mask)     
+#     for filename in mask_dirs:
+#         mask = Image.open(filename)
+#         resized_mask=preprocess_mask(mask, img_scale)      
+#         mask=np.asarray(resized_mask)     
+#         gt_list.append(mask)     
     
-    gt_tensor=torch.Tensor(gt_list)
-    net = UNet(n_channels=3, n_classes=7)
+#     gt_tensor=torch.Tensor(gt_list)
+#     net = UNet(n_channels=3, n_classes=7)
 
-    logging.info("Loading model {}".format(args.model))
+#     logging.info("Loading model {}".format(args.model))
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f'Using device {device}')
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     logging.info(f'Using device {device}')
     
-    net.to(device=device)
-    net.load_state_dict(torch.load(args.model, map_location=device))
+#     net.to(device=device)
+#     net.load_state_dict(torch.load(args.model, map_location=device))
 
-    logging.info("Model loaded !")
+#     logging.info("Model loaded !")
     
-    for i, fn in enumerate(in_files):
-        logging.info("\nPredicting image {} ...".format(fn))
+#     for i, fn in enumerate(in_files):
+#         logging.info("\nPredicting image {} ...".format(fn))
 
-        img = Image.open(fn)
+#         img = Image.open(fn)
         
-        #Splitting input directory from the file name
-        name=fn.split('/')[-1]
-        #Removing the file extension
-        name=name.split('.')[0]
-        seg, mask_indices = predict_img(net=net,
-                           full_img=img,
-                           scale_factor=args.scale,
-                           out_threshold=args.mask_threshold,
-                           device=device)
+#         #Splitting input directory from the file name
+#         name=fn.split('/')[-1]
+#         #Removing the file extension
+#         name=name.split('.')[0]
+#         seg, mask_indices = predict_img(net=net,
+#                            full_img=img,
+#                            scale_factor=args.scale,
+#                            out_threshold=args.mask_threshold,
+#                            device=device)
         
-        if i==0:
-          seg_array=mask_indices.unsqueeze(0)
-        else:
-          seg_array=torch.cat((seg_array,mask_indices.unsqueeze(0)),0)
+#         if i==0:
+#           seg_array=mask_indices.unsqueeze(0)
+#         else:
+#           seg_array=torch.cat((seg_array,mask_indices.unsqueeze(0)),0)
 
-        if args.viz:
-          im = Image.fromarray(seg)
-          im.save(str(args.output[0])+'pred_'+name+'.jpeg')
+#         if args.viz:
+#           im = Image.fromarray(seg)
+#           im.save(str(args.output[0])+'pred_'+name+'.jpeg')
 
 
-    #Metric Evaluation 
-    print(gt_tensor.shape)
-    print(gt_tensor)
+#     #Metric Evaluation 
+#     print(gt_tensor.shape)
+#     print(gt_tensor)
 
-    #gt_tensor=RGB_2_class_idx(gt_tensor)
-    num_calsses=7
-    #total_IoU = compute_iou(seg_array, gt_tensor,num_calsses=7)
+#     #gt_tensor=RGB_2_class_idx(gt_tensor)
+#     num_calsses=7
+#     #total_IoU = compute_iou(seg_array, gt_tensor,num_calsses=7)
     
-    #print("IoU Value:",total_IoU)
+#     #print("IoU Value:",total_IoU)
