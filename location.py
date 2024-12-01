@@ -225,6 +225,8 @@ def fetch_image(top_left, bottom_right, zoom):
 
     img = download_image(lat1, lon1, lat2, lon2, zoom, prefs['url'],
         prefs['headers'], tile_size, channels)
+    
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     name = f'img_{timestamp}.png'
