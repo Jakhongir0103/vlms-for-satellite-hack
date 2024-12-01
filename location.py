@@ -271,9 +271,8 @@ def calculate_distance_components(top_left, bottom_right):
     east_west_distance = dlon * R * cos((lat1 + lat2) / 2)
     
     # Area of the rectangle
-    area = north_south_distance * east_west_distance
     
-    return area
+    return (north_south_distance, east_west_distance)
 
 # Example usage
 top_left_coords = (48.8566, 2.3522)
