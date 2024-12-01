@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from PIL import Image
+import random
 TILE_SAVE_DIR = 'tiles/'
 
 @dataclass
@@ -29,6 +30,13 @@ class Location:
             self.tiles[key] = Image.open(f"{TILE_SAVE_DIR}{file}")
     def get_example_images(self):
         return [self.tiles[example] for example in self.examples]
+    
+    def add_more_examples_images(self):
+        random.seed(42)
+        self.examples += random.sample(list(self.tiles.keys()), 3)
+    
+    def create_example_images(self):
+        self.examples = random.sample(list(self.tiles.keys()), 3)
     
     def get_thumbnail(self):
         return self.tiles[self.examples[0]]

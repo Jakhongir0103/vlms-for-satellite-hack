@@ -1,7 +1,4 @@
-name: /home/miki/prg/satelite_imgs/.conda
-channels:
-  - conda-forge
-  - https://conda.anaconda.org/conda-forge
+name: hackconda
 dependencies:
   - _libgcc_mutex=0.1
   - _openmp_mutex=4.5
@@ -172,4 +169,3 @@ dependencies:
       - urllib3==2.2.3
       - uvicorn==0.32.1
       - websockets==12.0
-prefix: /home/miki/prg/satelite_imgs/.conda
