@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 from PIL import Image
 TILE_SAVE_DIR = 'tiles/'
+import pickle
 
 class Location:
     name: str
@@ -24,6 +25,9 @@ class Location:
         self.meters_per_pixel = image_scale(zoom, top_left)
 
 
+    def fetch(self, zoom=10):
+        self.fetch_tiles()
+        self.fetch_thumbnail(zoom)
     def fetch_tiles(self):
         current = calculate_new_coordinates(self.top_left, self.tile_size_meters, self.tile_size_meters)
         first_long = current[1]
@@ -35,13 +39,6 @@ class Location:
                 self.tiles[current] = img
             current = current[0], first_long
             current = calculate_new_coordinates(current, self.tile_size_meters, 0)
-    def save_tiles(self):
-        if not os.path.isdir(TILE_SAVE_DIR):
-            os.mkdir(TILE_SAVE_DIR)
-        if not os.path.isdir(os.path.join(TILE_SAVE_DIR, self.name)):
-            os.mkdir(os.path.join(TILE_SAVE_DIR, self.name))
-        for key, img in self.tiles.items():
-            img.save(os.path.join(TILE_SAVE_DIR, self.name, f'{key[0]}_{key[1]}.png'))
         
     def load(self):
         self.tiles = {}
@@ -52,6 +49,9 @@ class Location:
     def get_example_images(self):
         return [self.tiles[example] for example in self.examples]
     
+    def fetch_thumbnail(self, zoom = 10):
+        self.thumbnail = fetch_image(self.top_left, self.bottom_right, zoom)
+
     def get_thumbnail(self):
         return self.tiles[self.examples[0]]
     def get_middle_tile(self):
@@ -60,6 +60,68 @@ class Location:
         return img
     def get_real_size(self):
         return calculate_distance_components(self.top_left, self.bottom_right)
+
+    def save_class(self):
+        # Create directories if they don't exist
+        class_dir = os.path.join(TILE_SAVE_DIR, self.name)
+        os.makedirs(class_dir, exist_ok=True)
+        
+        # Save metadata
+        metadata = {
+            'name': self.name,
+            'top_left': self.top_left,
+            'bottom_right': self.bottom_right,
+            'examples': self.examples,
+            'tile_size_meters': self.tile_size_meters,
+            'zoom': self.zoom,
+            'meters_per_pixel': self.meters_per_pixel,
+        }
+        with open(os.path.join(class_dir, 'metadata.pkl'), 'wb') as f:
+            pickle.dump(metadata, f)
+        
+        # Save images
+        tiles_dir = os.path.join(class_dir, 'tiles')
+        os.makedirs(tiles_dir, exist_ok=True)
+        for key, img in self.tiles.items():
+            # Use floating-point format in filenames
+            key_str = f"{key[0]:.6f}_{key[1]:.6f}"
+            img.save(os.path.join(tiles_dir, f"{key_str}.png"))
+        # Save thumbnail
+        self.thumbnail.save(os.path.join(class_dir, 'thumbnail.png'))
+
+    @classmethod
+    def load_class(cls, name):
+        class_dir = os.path.join(TILE_SAVE_DIR, name)
+        if not os.path.exists(class_dir):
+            raise FileNotFoundError(f"No saved data found for location: {name}")
+        
+        # Load metadata
+        with open(os.path.join(class_dir, 'metadata.pkl'), 'rb') as f:
+            metadata = pickle.load(f)
+        # Load thumbnail
+        
+        # Create instance
+        instance = cls(
+            name=metadata['name'],
+            top_left=metadata['top_left'],
+            bottom_right=metadata['bottom_right'],
+            zoom=metadata['zoom'],
+            tile_size_meters=metadata['tile_size_meters']
+        )
+        instance.examples = metadata['examples']
+        instance.meters_per_pixel = metadata['meters_per_pixel']
+        instance.thumbnail = Image.open(os.path.join(class_dir, 'thumbnail.png'))
+        
+        # Load images
+        tiles_dir = os.path.join(class_dir, 'tiles')
+        instance.tiles = {}
+        for file in os.listdir(tiles_dir):
+            if file.endswith('.png'):
+                # Parse floating-point keys
+                key = tuple(map(float, file[:-4].split('_')))
+                instance.tiles[key] = Image.open(os.path.join(tiles_dir, file))
+        
+        return instance
 
 
 
@@ -194,4 +256,5 @@ print(calculate_distance_components(top_left_coords, bottom_right_coords))
 def image_scale(zoom, loc):
     lat, _ = loc
     return zoom_to_scale[zoom] * cos(radians(lat))
+
 
