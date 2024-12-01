@@ -80,8 +80,8 @@ class RSChatGPT:
         self, 
         gpt_name, 
         object_model_type='x', 
-        field_segmentation_model_path='../backend/weights/CP_epoch30.pth',
-        solar_segmentation_model_path='../backend/weights/deeplabv3plus_efficientnet-b3_model_25.pth'
+        field_segmentation_model_path='backend/weights/CP_epoch30.pth',
+        solar_segmentation_model_path='backend/weights/deeplabv3plus_efficientnet-b3_model_25.pth'
     ):
         self.llm = ChatOpenAI(
             model=gpt_name,
