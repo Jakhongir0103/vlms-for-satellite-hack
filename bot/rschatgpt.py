@@ -7,6 +7,8 @@ import ast
 import dotenv
 from tqdm import tqdm
 dotenv.load_dotenv()
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.segmentation import process_image, post_process_image, preload_model
 
@@ -39,31 +41,6 @@ class UnifiedVisionModel:
         response = self.llm.invoke(messages)
         return response.content
 
-    def analyze_image(self, image_path, prompt=None, system_message=None):
-        base64_image = self.image_to_base64(image_path)
-        
-        messages = [
-            {
-                "role": "system",
-                "content": system_message if system_message else "You are a helpful assistant."
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": f"This is a satellite image. {prompt if prompt else ''}"},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    }
-                ]
-            }
-        ]
-        
-        response = self.llm.invoke(messages)
-        return response.content
-
 class RSChatGPT:
     def __init__(self, gpt_name, cv_model_type='x'):
         self.llm = ChatOpenAI(
@@ -76,21 +53,10 @@ class RSChatGPT:
         self.system_message = None
         self.object_names = None
 
-    def initialize(self, image_path, question):
+    def initialize(self, question):
         """
-        Initialize the system message and object names.
+        Initialize the object names.
         """
-        prompt="Describe what you see in this satellite image very shortly."
-        description = self.vision_model.analyze_image(image_path, prompt)
-
-        self.system_message = f"""You are an image analysis assistant. You are given a satellite image, its description, number of objects, and their properties.
-
-Desciption of the image:
-{description}
-
-Answer the user's question based on the image, its description, and the objects properties.
-"""
-
         prompt = f"""Among these following objects ['plane', 'ship', 'storage tank', 'ground track field', 'large vehicle', 'small vehicle', 'helicopter'], which ones is the question about?
 Note that 'large vehicle' and 'small vehicle' are cars.
 Return only a python list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the objects, return an empty list.
@@ -105,17 +71,13 @@ A list of object names:
 
         self.object_names = object_names
 
-    def segment_image(self, image_in_path, threshold, resolution=0.1):
-        image_in = Image.open(image_in_path)
+    def segment_image(self, image_in, threshold, resolution=0.1):
         result = process_image(image=image_in, model=self.cv_model)
         id_to_label = result.names
         label_to_id = {label: id for id, label in id_to_label.items()}
         result_list, image_out = post_process_image(result, resolution=resolution, threshold=threshold, class_index=[label_to_id[name] for name in self.object_names])
 
-        image_out_path = image_in_path.replace("image_in", "image_out").replace(".png", "_segmented.png")
-        Image.fromarray(image_out).save(image_out_path)
-
-        return result_list
+        return result_list, image_out
 
     def extract_output(self, text):
         match = re.search(r'\[\[(.*?)\]\]', text)
@@ -124,11 +86,11 @@ A list of object names:
         else:
             return 0
 
-    def run_image(self, image_path, question, result_list):
+    def run_text(self, question, result_list):
         """
         Run the image and the result list through the model.
         """
-        prompt = f"""Answer the question about the image based on the given objects' properties.
+        prompt = f"""Answer the question about an image based on the given objects' properties.
 Note that 'large vehicle' and 'small vehicle' are cars. Output only a single number as your output between double square brackets as, e.g [[6]].
 
 Number of objects:
@@ -141,41 +103,22 @@ Question:
 {question}
 """
 
-        print("Prompt:\n", prompt)
-        
-        # response = self.vision_model.analyze_image(image_path, prompt, system_message=self.system_message)
         response = self.vision_model.analyze_text(prompt)
-
         return self.extract_output(response)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_path', type=str, required=True)
-    parser.add_argument('--image_tiles_dir', type=str)
     parser.add_argument('--question', type=str, required=True)
     parser.add_argument('--threshold', type=float, required=True)
     args = parser.parse_args()
     
-    bot = RSChatGPT(gpt_name="gpt-4o-2024-11-20")
-    bot.initialize(args.image_path, args.question)
+    bot = RSChatGPT(gpt_name="gpt-4o-mini")
+    bot.initialize(args.question)
 
-    # # All tiles
-    # tiles_names = list(os.listdir(args.image_tiles_dir))
-    # results_list = []
+    image = Image.open(args.image_path)
 
-    # for tile_name in tqdm(tiles_names, desc="Segmenting the tiles"):
-    #     tile_path = os.path.join(args.image_tiles_dir, tile_name)
-    #     results_list.extend(bot.segment_image(tile_path, args.threshold))
-    
-    # response = bot.run_image(args.image_path, args.question, results_list)
-    # print("Response:\n", response)
+    result_list, image_out = bot.segment_image(image, args.threshold)
+    response = bot.run_text(args.question, result_list)
 
-    # All tiles
-    tiles_names = list(os.listdir(args.image_tiles_dir))
-
-    tile_sample = tiles_names[0]
-    tile_path = os.path.join(args.image_tiles_dir, tile_sample)
-    result_list = bot.segment_image(tile_path, args.threshold)
-    
-    response = bot.run_image(args.image_path, args.question, result_list)
     print("Response:\n", response)
