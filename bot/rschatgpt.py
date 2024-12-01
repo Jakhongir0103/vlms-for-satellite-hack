@@ -6,6 +6,9 @@ import re
 from langchain_openai import ChatOpenAI
 from PIL import Image
 
+import cv2
+import numpy as np
+
 import dotenv
 dotenv.load_dotenv()
 
@@ -14,9 +17,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.segmentation import process_image, post_process_image, preload_model
 from backend.predict_field_segmentation import segment_land, preload_model as preload_field_segmentation_model
+from backend.predict_solar_segmentation import get_model, detect_solar_panels
 
-#os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
 os.makedirs('image_out', exist_ok=True)
 
 class UnifiedVisionModel:
@@ -73,17 +76,25 @@ class UnifiedVisionModel:
         return response.content
 
 class RSChatGPT:
-    def __init__(self, gpt_name, cv_model_type='x', field_segmentation_model_path='backend/weights/CP_epoch30.pth'):
+    def __init__(
+        self, 
+        gpt_name, 
+        object_model_type='x', 
+        field_segmentation_model_path='../backend/weights/CP_epoch30.pth',
+        solar_segmentation_model_path='../backend/weights/deeplabv3plus_efficientnet-b3_model_25.pth'
+    ):
         self.llm = ChatOpenAI(
             model=gpt_name,
             max_tokens=1000,
             temperature=0
         )
         self.vision_model = UnifiedVisionModel(self.llm)
-        self.cv_model = preload_model(cv_model_type)
-        self.field_net = preload_field_segmentation_model(field_segmentation_model_path)
+        self.object_model = preload_model(object_model_type)
+        self.field_model = preload_field_segmentation_model(field_segmentation_model_path)
+        self.solar_model = get_model(solar_segmentation_model_path)
         self.object_names = ['plane', 'ship', 'storage tank', 'ground track field', 'large vehicle', 'small vehicle', 'helicopter']
         self.field_names = ['urban land', 'agriculture', 'rangeland', 'forest land', 'water', 'barren land']
+        self.solar_names = ['solar panel']
         self.system_message = None
         self.detected_entities = None
         self.question_type = None
@@ -97,7 +108,7 @@ Note that 'large vehicle' and 'small vehicle' are cars.
 Return only a list of object names, e.g. ['helicopters', 'ground track field']. If the question is not about any of the entities, return an empty list.
 
 Entities: 
-{self.object_names + self.field_names}
+{self.object_names + self.field_names + self.solar_names}
 
 Question:
 {question}
@@ -111,6 +122,8 @@ A list of entity names:
             self.question_type = 'object'
         elif [entity for entity in detected_entities if entity in self.field_names]:
             self.question_type = 'field'
+        elif [entity for entity in detected_entities if entity in self.solar_names]:
+            self.question_type = 'solar'
         else:
             self.question_type = None
 
@@ -119,19 +132,28 @@ A list of entity names:
         self.detected_entities = detected_entities
 
     def segment_object(self, image_in, threshold=0.5, resolution=0.1):
-        result = process_image(image=image_in, model=self.cv_model)
+        result = process_image(image=image_in, model=self.object_model)
         id_to_label = result.names
         label_to_id = {label: id for id, label in id_to_label.items()}
 
-        result_list, image_out = post_process_image(result, resolution=resolution, threshold=threshold, class_index=[label_to_id[name] for name in self.object_names])
-
+        result_list, image_out = post_process_image(result, resolution=resolution, threshold=threshold, class_index=[label_to_id[name] for name in self.detected_entities])
         image_out = Image.fromarray(image_out)
 
         return result_list, image_out
 
     def segment_field(self, image_in, threshold=0.5, resolution=0.1, scale=0.2):
-        areas, image_out = segment_land(image=image_in, threshold=threshold, resolution=resolution, scale=scale, net=self.field_net)
+        areas, image_out = segment_land(image=image_in, threshold=threshold, resolution=resolution, scale=scale, net=self.field_model)
         del areas['unknown']
+
+        return areas, image_out
+
+    def segment_solar(self, image_in, resolution=0.1):
+        total_image_area, percentage_selected, image_out = detect_solar_panels(model=self.solar_model, selected_img=image_in, resolution=resolution)
+        image_out = Image.fromarray(image_out)
+        areas = {
+            'area': total_image_area,
+            'ratio_area': percentage_selected
+        }
 
         return areas, image_out
 
@@ -166,6 +188,16 @@ Output only a single number as your output between double square brackets as, e.
 
 Area of each type of field:
 {chr(10).join([f"{field}: area = {areas['area']:.2f} square meters, area ratio = {areas['ratio_area']:.4f}" for field, areas in results.items()])}
+
+Question:
+{question}
+"""
+        elif self.question_type == 'solar':
+            prompt = f"""Answer the question about an image based on the given solar panels' area.
+Output only a single number as your output between double square brackets as, e.g [[6]].
+
+Area of solar panels: {results['area']:.2f} square meters
+Area Ratio of solar panels: {results['ratio_area']:.2f}
 
 Question:
 {question}
@@ -211,6 +243,16 @@ Area of each type of field:
 Question:
 {question}
 """
+        elif self.question_type == 'solar':
+            prompt = f"""Answer the question about the image based on the given solar panels' area.
+Output only a single number as your output between double square brackets as, e.g [[6]].
+
+Area of solar panels: {results['area']:.2f} square meters
+Area Ratio of solar panels: {results['ratio_area']:.2f}
+
+Question:
+{question}
+"""
         else:
             prompt = f"""Answer the question about the image.
 Output only a single number as your output between double square brackets as, e.g [[6]].
@@ -235,6 +277,9 @@ def analyze_image(bot, image, question, threshold, resolution):
         results, image_out = bot.segment_object(image, threshold, resolution)
     elif bot.question_type == 'field':
         results, image_out = bot.segment_field(image, threshold, resolution)
+    elif bot.question_type == 'solar':
+        image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        results, image_out = bot.segment_solar(image, resolution)
     else:
         results = None
         image_out = image
@@ -243,18 +288,18 @@ def analyze_image(bot, image, question, threshold, resolution):
 
     return response, image_out
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--image_path', type=str, required=True)
-    parser.add_argument('--question', type=str, required=True)
-    parser.add_argument('--threshold', type=float, required=True)
-    parser.add_argument('--resolution', type=float, required=True)
-    args = parser.parse_args()
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--image_path', type=str, required=True)
+#     parser.add_argument('--question', type=str, required=True)
+#     parser.add_argument('--threshold', type=float, required=True)
+#     parser.add_argument('--resolution', type=float, required=True)
+#     args = parser.parse_args()
 
-    bot = initilize_bot(args.question)
+#     bot = initilize_bot(args.question)
 
-    image = Image.open(args.image_path)
-    response, image_out = analyze_image(bot, image, args.question, args.threshold, args.resolution)
+#     image = Image.open(args.image_path)
+#     response, image_out = analyze_image(bot, image, args.question, args.threshold, args.resolution)
 
-    image_out.show()
-    print("Response:\n", response)
+#     image_out.show()
+#     print("Response:\n", response)

@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import albumentations as A
 import skimage.measure as km
-
+import matplotlib.pyplot as plt
 import segmentation_models_pytorch as smp
 from utils import *
 
@@ -19,9 +19,6 @@ activation = 'sigmoid'
 EPOCHS = 25
 n_classes = len(CLASSES)
 preprocess_input = smp.encoders.get_preprocessing_fn(BACKBONE)
-
-def get_model(model, backbone, n_classes, activation):
-    return model(backbone, classes=n_classes, activation=activation)
 
 def get_test_augmentation():
     """Add paddings to make image shape divisible by 32"""
@@ -167,9 +164,9 @@ def draw_bbox(image, bboxes):
     return image
 
 
-def get_model(device):
+def get_model(model_path):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    return torch.load('weights/deeplabv3plus_efficientnet-b3_model_25.pth', map_location=device)
+    return torch.load(model_path, map_location=device)
 
 def detect_solar_panels(model, selected_img, resolution):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -223,4 +220,3 @@ def detect_solar_panels(model, selected_img, resolution):
     percentage_selected = (total_area_selected / total_image_area)
 
     return total_image_area * resolution, percentage_selected, image_with_bboxes
-    
