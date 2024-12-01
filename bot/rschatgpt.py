@@ -8,7 +8,7 @@ import dotenv
 from tqdm import tqdm
 dotenv.load_dotenv()
 
-from vitol.backend.segmentation import process_image, post_process_image, preload_model
+from backend.segmentation import process_image, post_process_image, preload_model
 
 os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
 os.makedirs('image_out', exist_ok=True)
