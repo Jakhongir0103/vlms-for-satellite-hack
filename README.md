@@ -80,3 +80,9 @@ vitol/
 ├── sattelite_downloader    # Sattelite image downloader
 ├── app.ipynb               # Demo on Gradio
 ```
+
+# Contributers:
+- [MikiVanousek](https://github.com/MikiVanousek)
+- [Jakhongir0103](https://github.com/Jakhongir0103)
+- [theS3b](https://github.com/theS3b)
+- [charafkamel](https://github.com/charafkamel)
