@@ -82,7 +82,7 @@ vitol/
 ```
 
 # Contributers:
-- [MikiVanousek](https://github.com/MikiVanousek)
+- [Mikuláš Vanoušek](https://github.com/MikiVanousek)
 - [Jakhongir0103](https://github.com/Jakhongir0103)
-- [theS3b](https://github.com/theS3b)
-- [charafkamel](https://github.com/charafkamel)
+- [Sébastien Delsad](https://github.com/theS3b)
+- [Kamel Charaf](https://github.com/charafkamel)
