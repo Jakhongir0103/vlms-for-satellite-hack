@@ -22,7 +22,7 @@
 
 This platform bridges the gap between technical satellite image analysis and user-friendly interaction, allowing anyone to extract insights from satellite imagery through simple questions.
 
-# Question types:
+# Use cases
 ### Objects
 **Supported classes:**
 
@@ -34,6 +34,7 @@ plane, ship, storage tank, ground track field, large vehicle, small vehicle, hel
 - How many storage tanks are there with diameter above 5m? *(count with constrating on size)*
 - How many planes are in the image? *(if non-existing object, is not counted)*
 - How many cars are there in the image? *(non-supported classes are responded by GPT-4o mini)*
+- How many cars are there that are not parked?
 
 ### Fields
 **Supported classes:**
@@ -54,7 +55,28 @@ urban land, agriculture, rangeland, forest land, water, barren land
 
 **Any type of questions not mentioned above will be answered by GPT-4o mini**
 
-# Install dep
+# Demonstration
+![](img/cars.png)
+<nobr><sup><sup>Counting with specifications</sup></nobr>
+
+![](img/diameter.png)
+<nobr><sup>Counting with constrating on diameter</sup></nobr>
+
+![](img/threshold.png)
+<nobr><sup>Thesholding on uncertainty</sup></nobr>
+
+# Usage
+### Install dependencies
 ```
 conda env create -f environment.yml
+```
+
+### Structure
+```
+vitol/
+├── app.ipynb
+├── backend                 # CV models
+├── bot                     # LLM around CV models
+├── sattelite_downloader    # Sattelite image downloader
+├── app.ipynb               # Demo on Gradio
 ```
