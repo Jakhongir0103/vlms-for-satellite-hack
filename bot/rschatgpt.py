@@ -288,6 +288,7 @@ def analyze_image(bot, image, question, threshold, resolution):
 
     return response, image_out
 
+# Usage example:
 # if __name__ == '__main__':
 #     parser = argparse.ArgumentParser()
 #     parser.add_argument('--image_path', type=str, required=True)
