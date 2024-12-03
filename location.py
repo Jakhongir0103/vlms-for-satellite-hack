@@ -140,7 +140,7 @@ import cv2
 from PIL import Image
 from datetime import datetime
 
-from sat_down.image_downloading import download_image
+from sattelite_downloader.image_downloading import download_image
 
 
 default_prefs = {
