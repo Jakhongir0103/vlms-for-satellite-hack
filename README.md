@@ -68,6 +68,9 @@ urban land, agriculture, rangeland, forest land, water, barren land
 ![](img/big%20ships.png)
 <nobr><sup>Counting big ships</sup></nobr>
 
+![](img/forest.png)
+<nobr><sup>Area in square meter of the forest in an image (you could ask for e.g. area of water, urban land, agriculture)</sup></nobr>
+
 ![](img/solar_panels.png)
 <nobr><sup>Area in square meter of solar panels</sup></nobr>
 
