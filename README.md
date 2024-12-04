@@ -68,6 +68,9 @@ urban land, agriculture, rangeland, forest land, water, barren land
 ![](img/big%20ships.png)
 <nobr><sup>Counting big ships</sup></nobr>
 
+![](img/solar_panels.png)
+<nobr><sup>Area in meters squared of solar panels</sup></nobr>
+
 # Usage
 ### Install dependencies
 ```
