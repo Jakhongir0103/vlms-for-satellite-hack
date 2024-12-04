@@ -31,7 +31,7 @@ plane, ship, storage tank, ground track field, large vehicle, small vehicle, hel
 **Question Examples:**
 
 - How many ships are there in the image? *(count)*
-- How many storage tanks are there with diameter above 5m? *(count with constrating on size)*
+- How many storage tanks are there with a diameter above 5m? *(count with constranting on size)*
 - How many planes are in the image? *(if non-existing object, is not counted)*
 - How many cars are there in the image? *(non-supported classes are responded by GPT-4o mini)*
 - How many cars are there that are not parked?
@@ -43,9 +43,9 @@ urban land, agriculture, rangeland, forest land, water, barren land
 
 **Question: Examples**
 
-- What is the area of agriculture land / forest? *(deforestation analysis)*
+- What is the area of agricultural land/forest? *(deforestation analysis)*
 - What is the ratio of water in the image?
-- What is occupies the largest area in the image?
+- What occupies the largest area in the image?
 
 ### Solar
 
@@ -69,7 +69,7 @@ urban land, agriculture, rangeland, forest land, water, barren land
 <nobr><sup>Counting big ships</sup></nobr>
 
 ![](img/forest.png)
-<nobr><sup>Area in square meter of the forest in an image (you could ask for e.g. area of water, urban land, agriculture)</sup></nobr>
+<nobr><sup>Area in square meter of the forest in an image (you could ask e.g. area of water, urban land, agriculture)</sup></nobr>
 
 ![](img/solar_panels.png)
 <nobr><sup>Area in square meter of solar panels</sup></nobr>
