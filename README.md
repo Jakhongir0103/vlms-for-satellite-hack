@@ -65,6 +65,9 @@ urban land, agriculture, rangeland, forest land, water, barren land
 ![](img/threshold.png)
 <nobr><sup>Thesholding on uncertainty</sup></nobr>
 
+![](img/big%20ships.png)
+<nobr><sup>Counting big ships</sup></nobr>
+
 # Usage
 ### Install dependencies
 ```
