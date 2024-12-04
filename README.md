@@ -1,4 +1,4 @@
-![](img/thumbnail hackathon 2.jpg)
+![](img/thumbnail_hackathon_2.jpg)
 <nobr><sup><sup>© 2024 OpenAI</sup></sup></nobr>
 
 # Description
