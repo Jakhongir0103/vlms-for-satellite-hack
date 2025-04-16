@@ -1,3 +1,5 @@
+🎉 We won the AXA challenge with this project in [Lauzhack 2024](https://www.linkedin.com/company/lauzhack/posts/?feedView=all) 🎉
+----------------------
 ![](img/thumbnail_hackathon_2.jpg)
 <nobr><sup><sup>© 2024 OpenAI</sup></sup></nobr>
 
